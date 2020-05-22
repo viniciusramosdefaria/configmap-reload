@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,22 +86,24 @@ func eventHandler(watcher *fsnotify.Watcher){
 	for {
 		select {
 		case event := <-watcher.Events:
-			switch {
-			case event.Op&fsnotify.Write == fsnotify.Write:
-				for _, p := range processPath {
-					cmd := exec.Command("/usr/bin/pidof", p)
-					var out bytes.Buffer
-					var errExec bytes.Buffer
-					cmd.Stdout = &out
-					cmd.Stderr = &errExec
-					cmd.Run()
-					osReturn := out.String()
-					if len(osReturn) > 0 {
-						pid, _ := strconv.Atoi(strings.TrimSuffix(osReturn, "\n"))
-						process, _ := os.FindProcess(pid)
-						process.Signal(syscall.SIGHUP)
-						log.Printf("successfully triggered reload for %v, pid: %v", p, out.String())
-					}
+			if !isValidEvent(event) {
+				continue
+			}
+			log.Println("config map updated")
+			for _, p := range processPath {
+				log.Printf(p)
+				cmd := exec.Command("/bin/pidof", p)
+				var out bytes.Buffer
+				var errExec bytes.Buffer
+				cmd.Stdout = &out
+				cmd.Stderr = &errExec
+				cmd.Run()
+				osReturn := out.String()
+				if len(osReturn) > 0 {
+					pid, _ := strconv.Atoi(strings.TrimSuffix(osReturn, "\n"))
+					process, _ := os.FindProcess(pid)
+					process.Signal(syscall.SIGHUP)
+					log.Printf("successfully triggered reload for %v, pid: %v", p, out.String())
 				}
 			}
 
@@ -118,4 +121,14 @@ func directoryWatcher(watcher *fsnotify.Watcher){
 			log.Fatal(err)
 		}
 	}
+}
+
+func isValidEvent(event fsnotify.Event) bool {
+	if event.Op&fsnotify.Create != fsnotify.Create {
+		return false
+	}
+	if filepath.Base(event.Name) != "..data" {
+		return false
+	}
+	return true
 }
