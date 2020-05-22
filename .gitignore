@@ -2,4 +2,5 @@ out/
 _gopath/
 vendor/
 .vendor
+.idea/**
 manifest-tool
