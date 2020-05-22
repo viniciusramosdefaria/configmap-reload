@@ -1,4 +1,4 @@
-module github.com/jimmidyson/configmap-reload
+module configmap-reload
 
 go 1.12
 
